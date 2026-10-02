@@ -16,8 +16,9 @@ and Xcode project remain in the fork for provenance and are not part of the buil
   prevents observation of keyboard events.
 - No third-party libraries, downloads, network client, telemetry or updater are
   present. Only Apple system frameworks are linked.
-- Preferences store only an enable flag and the delay. The session's aggregate
-  blocked-event counter is displayed locally and is never persisted or sent.
+- Preferences store only an enable flag and the delay. Local notifications carry
+  no input or configuration data; the app reloads its own user preferences.
+  The stop notification only requests a normal exit. There is no network listener.
 
 ## Availability and energy
 
@@ -29,8 +30,8 @@ temporary state. Keyboard events are never suppressed.
 
 The native `SMAppService` user agent starts the app when the user signs in and
 restarts an abnormal exit through macOS, with a ten-second throttle. It does
-not enable protection before a GUI session exists. A menu toggle and Quit
-are always available after the short suppression window expires. A normal Quit
+not enable protection before a GUI session exists. There is no menu-bar or Dock
+icon. Terminal commands pause, resume, configure or stop it. A normal stop
 does not cause an immediate restart. Disabling the login service stops its
 managed instance; the app can still be opened manually.
 

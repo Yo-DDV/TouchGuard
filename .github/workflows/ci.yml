@@ -21,6 +21,8 @@ jobs:
         run: bash scripts/build.sh "$RUNNER_TEMP/app"
       - name: Check both executable architectures
         run: xcrun lipo -archs "$RUNNER_TEMP/app/TouchGuard.app/Contents/MacOS/TouchGuard" | python3 -c 'import sys; assert set(sys.stdin.read().split()) == {"arm64", "x86_64"}'
+      - name: Command-line validation and persisted settings
+        run: python3 tests/cli_test.py "$RUNNER_TEMP/app/TouchGuard.app/Contents/MacOS/TouchGuard"
       - name: Static analyzer
         run: |
           xcrun clang --analyze -Xanalyzer -analyzer-werror -Xanalyzer -analyzer-output=text -x objective-c -fobjc-arc -I modern \

@@ -29,12 +29,18 @@
 - (BOOL)hasFocus;
 @end
 
-static void postClick(CGPoint p) {
+static void postInteraction(CGPoint p) {
     CGEventRef down = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseDown, p, kCGMouseButtonLeft);
+    CGEventRef drag = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseDragged,
+                                             CGPointMake(p.x + 8, p.y), kCGMouseButtonLeft);
+    CGEventRef scroll = CGEventCreateScrollWheelEvent(NULL, kCGScrollEventUnitPixel, 1, 12);
+    CGEventSetLocation(scroll, p);
     CGEventRef up = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseUp, p, kCGMouseButtonLeft);
     CGEventSetFlags(down, 0); CGEventSetFlags(up, 0);
-    CGEventPost(kCGHIDEventTap, down); CGEventPost(kCGHIDEventTap, up);
-    CFRelease(down); CFRelease(up);
+    CGEventSetFlags(drag, 0); CGEventSetFlags(scroll, 0);
+    CGEventPost(kCGHIDEventTap, down); CGEventPost(kCGHIDEventTap, drag);
+    CGEventPost(kCGHIDEventTap, scroll); CGEventPost(kCGHIDEventTap, up);
+    CFRelease(down); CFRelease(drag); CFRelease(scroll); CFRelease(up);
 }
 
 @implementation TGProbe
@@ -67,12 +73,12 @@ static void postClick(CGPoint p) {
 }
 - (void)controlClick {
     if (![self hasFocus]) return;
-    postClick(self.location);
+    postInteraction(self.location);
     [self performSelector:@selector(arm) withObject:nil afterDelay:0.15];
 }
 - (void)arm {
     if (![self hasFocus]) return;
-    self.controlPassed = self.view.clicks == 1;
+    self.controlPassed = self.view.clicks == 1 && self.view.drags == 1 && self.view.scrolls == 1;
     CGEventRef down = CGEventCreateKeyboardEvent(NULL, 0, true);
     CGEventRef up = CGEventCreateKeyboardEvent(NULL, 0, false);
     CGEventSetFlags(down, 0); CGEventSetFlags(up, 0);
@@ -82,26 +88,27 @@ static void postClick(CGPoint p) {
 }
 - (void)attemptBlockedClick {
     if (![self hasFocus]) return;
-    postClick(self.location);
+    postInteraction(self.location);
     [self performSelector:@selector(checkProtection) withObject:nil afterDelay:0.03];
 }
 - (void)checkProtection {
-    self.protectionPassed = self.view.keys == 1 && self.view.clicks == 1;
+    self.protectionPassed = self.view.keys == 1 && self.view.clicks == 1
+        && self.view.drags == 1 && self.view.scrolls == 1;
     NSInteger milliseconds = [NSUserDefaults.standardUserDefaults integerForKey:@"delayMS"];
     if (milliseconds < 100 || milliseconds > 1000) milliseconds = 300;
     [self performSelector:@selector(afterDelayClick) withObject:nil afterDelay:milliseconds / 1000.0 + 0.15];
 }
 - (void)afterDelayClick {
     if (![self hasFocus]) return;
-    postClick(self.location);
+    postInteraction(self.location);
     [self performSelector:@selector(finish) withObject:nil afterDelay:0.15];
 }
 - (void)finish {
-    BOOL restored = self.view.clicks == 2;
+    BOOL restored = self.view.clicks == 2 && self.view.drags == 2 && self.view.scrolls == 2;
     self.result = self.controlPassed && self.protectionPassed && restored ? 0 : 1;
-    printf("{\"controlClick\":%s,\"blockedAfterKey\":%s,\"restoredAfterDelay\":%s,\"deliveredKeys\":%u,\"deliveredClicks\":%u}\n",
+    printf("{\"controlInteractions\":%s,\"blockedAfterKey\":%s,\"restoredAfterDelay\":%s,\"deliveredKeys\":%u,\"deliveredClicks\":%u,\"deliveredDrags\":%u,\"deliveredScrolls\":%u}\n",
            self.controlPassed ? "true" : "false", self.protectionPassed ? "true" : "false",
-           restored ? "true" : "false", self.view.keys, self.view.clicks);
+           restored ? "true" : "false", self.view.keys, self.view.clicks, self.view.drags, self.view.scrolls);
     [self.window orderOut:nil];
     [self.previous activateWithOptions:0];
     [NSApp stop:nil];

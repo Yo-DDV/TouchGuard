@@ -1,6 +1,6 @@
 # TouchGuard
 
-A native macOS menu-bar app that protects editing from stray pointer clicks,
+A native macOS background app that protects editing from stray pointer clicks,
 drag selections and scrolling while typing. Protection begins on key press and
 ends **300 ms after the last press/release**. The delay is adjustable from 100 to
 1000 ms. Keyboard input is always delivered unchanged.
@@ -26,10 +26,11 @@ bash scripts/build.sh build/app
 ```
 
 Copy `build/app/TouchGuard.app` to Applications and open it. Grant TouchGuard
-access in **System Settings → Privacy & Security → Accessibility**, then choose
-**Retry Protection** if necessary. Enable **Start at Login** in its menu. macOS
-manages that user service, including relaunch after a crash; no root service or privileged installer is
-required. The build script refuses to overwrite an existing app: use a fresh
+access in **System Settings → Privacy & Security → Accessibility**. Protection
+starts automatically after consent. If the two-minute consent window has ended,
+run `--resume` using the command below. Enable startup with `--enable-login`.
+macOS manages this user service, including relaunch after a crash; no root service
+or privileged installer is required. The build script refuses to overwrite an existing app: use a fresh
 output directory for a subsequent build.
 
 Local builds use an ad-hoc signature by default. Publishers can set
@@ -40,14 +41,24 @@ Gatekeeper or quarantine checks to run an untrusted binary.
 
 ## Controls
 
-- **Protect While Typing**: pause or resume without changing keyboard behavior.
-- **Delay After Typing**: choose the short release delay.
-- **Start at Login**: use native macOS registration and crash recovery. Disabling it stops the managed instance.
-- **Retry Protection / Accessibility Settings**: resolve a denied or newly granted permission.
-- **Quit TouchGuard**: stop the session's protection.
+There is no menu-bar icon or Dock icon. Controls run from Terminal:
 
-The menu reports whether protection is active and shows an aggregate blocked
-interaction count. Settings persist; input contents and counters do not.
+```sh
+tg=/Applications/TouchGuard.app/Contents/MacOS/TouchGuard
+"$tg" --enable-login
+"$tg" --delay-ms 300  # 100 to 1000 ms; saved across sessions
+"$tg" --pause
+"$tg" --resume       # also retries access after granting consent
+"$tg" --status
+"$tg" --stop         # normal exit; no immediate restart
+"$tg" --disable-login
+```
+
+Settings changes reach the running app through a local notification, with no
+polling or network listener. Only an enable flag and delay are stored.
+`--status` reports configuration, process presence and permissions; the native
+diagnostic below verifies actual filtering. Disabling startup stops the managed
+instance; the app can still be opened manually.
 
 ## Validation
 
@@ -56,7 +67,7 @@ interaction count. Settings persist; input contents and counters do not.
 /Applications/TouchGuard.app/Contents/MacOS/TouchGuard --status
 
 # With TouchGuard running and Accessibility granted, a short disposable window
-# checks native click delivery before, during and after the protection window.
+# checks click, drag and scroll delivery before, during and after protection.
 # Leave that window focused until it closes automatically.
 /Applications/TouchGuard.app/Contents/MacOS/TouchGuard --integration-test
 ```
@@ -74,7 +85,7 @@ system cursor or block system multi-finger gestures. Command/Control/Option
 gestures bypass suppression. Secure Input is respected and may temporarily make
 protection unavailable in protected fields. See [SECURITY.md](SECURITY.md).
 
-To uninstall, disable Start at Login, quit the app, remove its Accessibility
+To uninstall, run `--disable-login` and `--stop`, remove its Accessibility
 entry, then remove the application. No system configuration or shared input
 utility needs to be changed.
 
