@@ -20,8 +20,10 @@ revision="$(git rev-parse HEAD)"
 if [[ -n "$(git status --porcelain)" ]]; then revision="$revision-dirty"; fi
 printf '%s\n' "$revision" > "$app/Contents/Resources/source-revision.txt"
 signing="${SIGNING_IDENTITY:--}"
-extra=()
-if [[ "$signing" != '-' ]]; then extra+=(--timestamp); fi
-codesign --force --options runtime "${extra[@]}" --sign "$signing" "$app"
+if [[ "$signing" == '-' ]]; then
+    codesign --force --options runtime --sign - "$app"
+else
+    codesign --force --options runtime --timestamp --sign "$signing" "$app"
+fi
 codesign --verify --deep --strict "$app"
 printf 'Built: %s\n' "$app"
