@@ -1,32 +1,97 @@
 # TouchGuard
 
-Disables Mac touchpad for a user-specified amount of time each time a key is pressed on the keyboard. This prevents accidental touchpad input (e.g. palm of hand moving over the edge of the touchpad) from being detected as a tap and causing the cursor to jump to a different line while the user is typing.
+A native macOS background app that protects editing from stray pointer clicks,
+drag selections and scrolling while typing. Protection begins on key press and
+ends **300 ms after the last press/release**. The delay is adjustable from 100 to
+1000 ms. Keyboard input is always delivered unchanged.
 
-**Download latest release from [here](https://github.com/thesyntaxinator/TouchGuard/releases)**
+This is the maintained [Yo-DDV fork](https://github.com/Yo-DDV/TouchGuard) of
+[SyntaxSoft's original TouchGuard](https://github.com/thesyntaxinator/TouchGuard).
+The new app is independently implemented in C and Objective-C, with no external
+runtime dependencies. The inherited implementation is not compiled or installed.
 
-*NOTE: Must be run with administrative privileges.*
+## Requirements
 
-----------------
-## Usage (non-tech savvy)
-- Open Terminal, type "chmod +x ", drag the drop the downloaded file into the Terminal window, and press enter (this only needs to be done once after downloading the file).
-- Then type "sudo", drag and drop the downloaded file into the Terminal window, type " -time 0.2" and press enter. You may be prompted for your password; if so, type it and presss enter. Note that you will not see the cursor move while typing your password -- this is normal and done for security reasons.
-- Keep the terminal window open. If you close the window, the program will exit. You can hide the window by typing "command-h".
-- You will need to manually relaunch the app each time you restart your computer using the above sequence of steps. To auto-start after you restart your computer, see an unofficial extension of the project at <a href="https://github.com/amanagr/TouchGuard" target="_blank">amanagr/TouchGuard</a>.
+- macOS 14 or later, Apple silicon or Intel.
+- Accessibility permission for TouchGuard.
+- Xcode Command Line Tools or Xcode to build from source.
 
-------------------
-## Sample command line usage (for the more tech-savvy)
+## Build and install
+
+```sh
+git clone https://github.com/Yo-DDV/TouchGuard.git
+cd TouchGuard
+bash scripts/test.sh build/tests
+bash scripts/build.sh build/app
 ```
-# make the downloaded release file executable
-chmod +x TouchGuard
-# run it
-sudo ./TouchGuard -time 0.2
+
+Copy `build/app/TouchGuard.app` to Applications and open it. Grant TouchGuard
+access in **System Settings → Privacy & Security → Accessibility**. Protection
+starts automatically after consent. If the two-minute consent window has ended,
+run `--resume` using the command below. Enable startup with `--enable-login`.
+macOS manages this user service, including relaunch after a crash; no root service
+or privileged installer is required. The build script refuses to overwrite an existing app: use a fresh
+output directory for a subsequent build.
+
+Local builds use an ad-hoc signature by default. Publishers can set
+`SIGNING_IDENTITY` to a Developer ID identity to use hardened runtime and a secure
+timestamp. A locally compiled signature is not a claim of Apple notarization;
+downloaded releases require a separate notarization process. Never disable
+Gatekeeper or quarantine checks to run an untrusted binary.
+
+## Controls
+
+There is no menu-bar icon or Dock icon. Controls run from Terminal:
+
+```sh
+tg=/Applications/TouchGuard.app/Contents/MacOS/TouchGuard
+"$tg" --enable-login
+"$tg" --delay-ms 300  # 100 to 1000 ms; saved across sessions
+"$tg" --pause
+"$tg" --resume       # also retries access after granting consent
+"$tg" --status
+"$tg" --stop         # normal exit; no immediate restart
+"$tg" --disable-login
 ```
 
-The above launches TouchGuard with a time interval of 200 ms (disables the touchpad for 200 ms each time a key is pressed on the keyboard). I have found this to be effective for me -- if you are still having issues (e.g. you can't use the trackpad immediately after typing, or your cursor still jumps), you can adjust the time interval up or down as needed.
+Settings changes reach the running app through a local notification, with no
+polling or network listener. Only an enable flag and delay are stored.
+`--status` reports configuration, process presence and permissions; the native
+diagnostic below verifies actual filtering. Disabling startup stops the managed
+instance; the app can still be opened manually.
 
-*Note: You will need to manually relaunch the app each time you restart your computer. A future goal is to create an installer with an option to automatically run the program (with elevated privileges) every time the computer starts. If you would like to work on this, feel free to fork the project and let me know if you get it working (see contact info under "Support" below).*
+## Validation
 
-----------------
-## Support
-Questions? Comments? Feedback? Issues? Open a new issue [here](https://github.com/thesyntaxinator/TouchGuard/issues) or email syntaxsoftsupport@icloud.com.
+```sh
+# Configuration/permission status; no event contents are printed.
+/Applications/TouchGuard.app/Contents/MacOS/TouchGuard --status
 
+# With TouchGuard running and Accessibility granted, a short disposable window
+# checks click, drag and scroll delivery before, during and after protection.
+# Leave that window focused until it closes automatically.
+/Applications/TouchGuard.app/Contents/MacOS/TouchGuard --integration-test
+```
+
+CI runs isolated tests, sanitizers, strict universal builds and static analysis
+on Intel, Apple silicon and the current Xcode preview. Resource claims for the C
+core are microbenchmarks; whole-app CPU and memory must be measured on the running
+target, rather than inferred from compilation or state tests.
+
+## Scope and privacy
+
+The guard filters pointer events from both trackpads and mice. It prevents the
+clicks and drags that move the text caret or select text; it does not freeze the
+system cursor or block system multi-finger gestures. Command/Control/Option
+gestures bypass suppression. Secure Input is respected and may temporarily make
+protection unavailable in protected fields. See [SECURITY.md](SECURITY.md).
+
+To uninstall, run `--disable-login` and `--stop`, remove its Accessibility
+entry, then remove the application. No system configuration or shared input
+utility needs to be changed.
+
+## License and provenance
+
+The independently implemented app, tests, scripts and new documentation are
+licensed under MIT; see [LICENSE](LICENSE). The inherited `TouchGuard/` and
+`TouchGuard.xcodeproj/` files and upstream history are excluded because upstream
+did not provide an explicit license. They are retained unmodified for provenance.
